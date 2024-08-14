@@ -100,6 +100,7 @@ func TestExcelDataOperations(t *testing.T) {
 		assert.True(t, ok, "result.Data should be of type []person even when empty")
 	})
 
+	os.Remove("test_people.xlsx")
 }
 
 func TestConvertCellValue(t *testing.T) {
