@@ -113,7 +113,7 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 
 	for rowIndex, row := range ed.Rows {
 		item := reflect.New(t).Elem()
-		hasError := false
+		rowErrors := []ImportError{}
 
 		for i, header := range ed.Headers {
 			if i < len(row) {
@@ -121,21 +121,20 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 				if field.IsValid() && field.CanSet() {
 					err := setField(field, row[i])
 					if err != nil {
-						importErrors = append(importErrors, ImportError{
+						rowErrors = append(rowErrors, ImportError{
 							RowIndex: rowIndex + 2, // +2 because Excel rows are 1-indexed and we skip the header
 							Header:   header,
 							Value:    row[i],
 							Type:     field.Type(),
 							Err:      err,
 						})
-						hasError = true
-						break
 					}
 				}
 			}
 		}
 
-		if !hasError {
+		importErrors = append(importErrors, rowErrors...)
+		if len(rowErrors) == 0 {
 			result = append(result, item.Interface().(T))
 		}
 	}
@@ -150,7 +149,11 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 func setField(field reflect.Value, value interface{}) error {
 	switch field.Kind() {
 	case reflect.String:
-		field.SetString(fmt.Sprintf("%v", value))
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("cannot convert '%s' to type %s", value, field.Kind())
+		}
+		field.SetString(v)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		val, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
 		if err != nil {
