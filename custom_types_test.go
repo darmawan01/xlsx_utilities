@@ -10,67 +10,67 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type Address struct {
+type address struct {
 	Street string
 	City   string
 }
 
-type CustomID int
+type customID int
 
-type Person struct {
+type user struct {
 	Name      string
 	Age       int
-	Address   Address
+	Address   address
 	BirthDate time.Time
-	ID        CustomID
+	ID        customID
 	id        int // Unexported field
 }
 
-func (c CustomID) String() string {
+func (c customID) String() string {
 	return fmt.Sprintf("ID-%05d", int(c))
 }
 
 func TestXlsxUtilities(t *testing.T) {
 	// Register custom type handlers
-	RegisterTypeConverter(reflect.TypeOf(CustomID(0)), func(i interface{}) (string, error) {
-		id, ok := i.(CustomID)
+	RegisterTypeConverter(reflect.TypeOf(customID(0)), func(i interface{}) (string, error) {
+		id, ok := i.(customID)
 		if !ok {
-			return "", fmt.Errorf("expected CustomID, got %T", i)
+			return "", fmt.Errorf("expected customID, got %T", i)
 		}
 		return id.String(), nil
 	})
 
-	RegisterTypeParser(reflect.TypeOf(CustomID(0)), func(s string) (interface{}, error) {
+	RegisterTypeParser(reflect.TypeOf(customID(0)), func(s string) (interface{}, error) {
 		var id int
 		_, err := fmt.Sscanf(s, "ID-%05d", &id)
 		if err != nil {
 			return nil, err
 		}
-		return CustomID(id), nil
+		return customID(id), nil
 	})
 
 	// Test data
-	data := []Person{
+	data := []user{
 		{
 			Name: "Alice",
 			Age:  30,
-			Address: Address{
+			Address: address{
 				Street: "123 Main St",
 				City:   "New York",
 			},
 			BirthDate: time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-			ID:        CustomID(1),
+			ID:        customID(1),
 			id:        1, // This will be ignored in Excel conversion
 		},
 		{
 			Name: "Bob",
 			Age:  25,
-			Address: Address{
+			Address: address{
 				Street: "456 Elm St",
 				City:   "San Francisco",
 			},
 			BirthDate: time.Date(1995, 5, 15, 0, 0, 0, 0, time.UTC),
-			ID:        CustomID(2),
+			ID:        customID(2),
 			id:        2, // This will be ignored in Excel conversion
 		},
 	}
@@ -94,7 +94,7 @@ func TestXlsxUtilities(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Read from Excel
-		readExcelData, err := FromExcel[Person](filename)
+		readExcelData, err := FromExcel[user](filename)
 		assert.NoError(t, err)
 		assert.Equal(t, excelData.Headers, readExcelData.Headers)
 		assert.Equal(t, excelData.Rows, readExcelData.Rows)
@@ -120,15 +120,15 @@ func TestXlsxUtilities(t *testing.T) {
 	})
 
 	t.Run("Custom Type Handling", func(t *testing.T) {
-		// Test CustomID handling
-		id := CustomID(12345)
+		// Test customID handling
+		id := customID(12345)
 		converted, err := TypeConverters[reflect.TypeOf(id)](id)
 		assert.NoError(t, err)
 		assert.Equal(t, "ID-12345", converted)
 
 		parsed, err := TypeParsers[reflect.TypeOf(id)]("ID-12345")
 		assert.NoError(t, err)
-		assert.Equal(t, CustomID(12345), parsed)
+		assert.Equal(t, customID(12345), parsed)
 	})
 
 	t.Run("Unexported Fields", func(t *testing.T) {

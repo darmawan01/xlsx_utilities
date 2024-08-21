@@ -174,7 +174,7 @@ func TestExcelDataOperations(t *testing.T) {
 		excelData, _ := FromExcel[person]("test_error.xlsx")
 		result := excelData.ToStruct()
 		assert.Len(t, result.Errors, 1)
-		assert.Contains(t, result.Errors[0].Error(), "Row 2, Column 'Age': cannot convert 'not_a_number' to type int")
+		assert.Contains(t, result.Errors[0].Error(), "Row 2, Column 'Age': cannot convert 'not_a_number' to type string")
 		assert.Len(t, result.Data, 0) // No valid data due to error
 
 		// Check if returned data is of type []person even when empty
@@ -266,7 +266,7 @@ func TestToStructWithTypeMismatch(t *testing.T) {
 
 	result := excelData.ToStruct()
 	assert.Len(t, result.Errors, 1)
-	assert.Contains(t, result.Errors[0].Error(), "cannot convert '30' to type string")
+	assert.Contains(t, result.Errors[0].Error(), "cannot convert '30' to string")
 	assert.Len(t, result.Data, 0) // No valid data due to type mismatch
 }
 
@@ -282,4 +282,60 @@ func TestSetFieldWithUnsupportedType(t *testing.T) {
 	err := setField(field, value)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported type: []uint8")
+}
+
+func TestPointerHandling(t *testing.T) {
+	type NestedStruct struct {
+		NestedValue *string
+	}
+
+	type TestStruct struct {
+		StringPtr *string
+		IntPtr    *int
+		NestedPtr *NestedStruct
+	}
+
+	// Test FromStruct with pointers
+	t.Run("FromStruct with pointers", func(t *testing.T) {
+		str := "test"
+		num := 42
+		nestedStr := "nested"
+		data := []TestStruct{
+			{
+				StringPtr: &str,
+				IntPtr:    &num,
+				NestedPtr: &NestedStruct{NestedValue: &nestedStr},
+			},
+		}
+
+		excelData, err := FromStruct(data)
+		assert.NoError(t, err)
+		assert.Equal(t, []string{"StringPtr", "IntPtr", "NestedPtr NestedValue"}, excelData.Headers)
+		assert.Len(t, excelData.Rows, 1)
+		assert.Equal(t, []interface{}{"test", 42, "nested"}, excelData.Rows[0])
+	})
+
+	// Test ToStruct with pointers
+	t.Run("ToStruct with pointers", func(t *testing.T) {
+		headers := []string{"StringPtr", "IntPtr", "NestedPtr NestedValue"}
+		rows := [][]interface{}{{"test", 42, "nested"}}
+
+		excelData := &ExcelData[TestStruct]{
+			Headers: headers,
+			Rows:    rows,
+		}
+
+		result := excelData.ToStruct()
+		assert.Len(t, result.Data, 1)
+		assert.Len(t, result.Errors, 0)
+
+		item := result.Data[0]
+		assert.NotNil(t, item.StringPtr)
+		assert.Equal(t, "test", *item.StringPtr)
+		assert.NotNil(t, item.IntPtr)
+		assert.Equal(t, 42, *item.IntPtr)
+		assert.NotNil(t, item.NestedPtr)
+		assert.NotNil(t, item.NestedPtr.NestedValue)
+		assert.Equal(t, "nested", *item.NestedPtr.NestedValue)
+	})
 }

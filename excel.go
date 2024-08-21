@@ -3,7 +3,6 @@ package xlsx_utilities
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -159,61 +158,26 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 func setNestedField(v reflect.Value, fieldPath string, value interface{}) error {
 	fields := strings.Split(fieldPath, " ")
 	for i, field := range fields {
-		if v.Kind() == reflect.Struct {
-			f := v.FieldByName(field)
-			if !f.IsValid() {
-				return fmt.Errorf("no such field: %s in obj", field)
+		if v.Kind() == reflect.Ptr {
+			if v.IsNil() {
+				v.Set(reflect.New(v.Type().Elem()))
 			}
+			v = v.Elem()
+		}
 
-			if i == len(fields)-1 {
-				return setField(f, value)
-			}
-			v = f
-		} else {
+		if v.Kind() != reflect.Struct {
 			return fmt.Errorf("not a struct")
 		}
-	}
-	return nil
-}
 
-// setField sets the value of a struct field, handling type conversions
-func setField(field reflect.Value, value interface{}) error {
-	if parser, ok := TypeParsers[field.Type()]; ok {
-		parsedValue, err := parser(fmt.Sprintf("%v", value))
-		if err != nil {
-			return fmt.Errorf("error parsing custom type: %v", err)
+		f := v.FieldByName(field)
+		if !f.IsValid() {
+			return fmt.Errorf("no such field: %s in obj", field)
 		}
-		field.Set(reflect.ValueOf(parsedValue))
-		return nil
-	}
 
-	switch field.Kind() {
-	case reflect.String:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("cannot convert '%s' to type %s", value, field.Kind())
+		if i == len(fields)-1 {
+			return setField(f, value)
 		}
-		field.SetString(v)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		val, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
-		if err != nil {
-			return err
-		}
-		field.SetInt(val)
-	case reflect.Float32, reflect.Float64:
-		val, err := strconv.ParseFloat(fmt.Sprintf("%v", value), 64)
-		if err != nil {
-			return err
-		}
-		field.SetFloat(val)
-	case reflect.Bool:
-		val, err := strconv.ParseBool(fmt.Sprintf("%v", value))
-		if err != nil {
-			return err
-		}
-		field.SetBool(val)
-	default:
-		return fmt.Errorf("unsupported type: %v", field.Type())
+		v = f
 	}
 	return nil
 }
@@ -254,8 +218,14 @@ func getStructHeaders(t reflect.Type) ([]string, error) {
 			continue
 		}
 
-		if field.Type.Kind() == reflect.Struct && field.Type != reflect.TypeOf(time.Time{}) {
-			nestedHeaders, err := getStructHeaders(field.Type)
+		fieldType := field.Type
+		// If it's a pointer, get the element type
+		if fieldType.Kind() == reflect.Ptr {
+			fieldType = fieldType.Elem()
+		}
+
+		if fieldType.Kind() == reflect.Struct && fieldType != reflect.TypeOf(time.Time{}) {
+			nestedHeaders, err := getStructHeaders(fieldType)
 			if err != nil {
 				return nil, err
 			}
@@ -281,6 +251,15 @@ func getStructValues(v reflect.Value) ([]interface{}, error) {
 		// Skip unexported fields
 		if !fieldType.IsExported() {
 			continue
+		}
+
+		// Dereference pointer if needed
+		if field.Kind() == reflect.Ptr {
+			if field.IsNil() {
+				values = append(values, nil)
+				continue
+			}
+			field = field.Elem()
 		}
 
 		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(time.Time{}) {
