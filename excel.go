@@ -54,8 +54,20 @@ func (ed *ExcelData[T]) AddRow(row []interface{}) error {
 
 // ToExcel generates an Excel file from the ExcelData
 func (ed *ExcelData[T]) ToExcel(filename string) error {
-	f := excelize.NewFile()
+	return ed.Save(filename)
+}
+
+// Save the Excel file
+func (ed *ExcelData[T]) Save(filename string) error {
+	f := ed.ToFile()
 	defer f.Close()
+
+	return f.SaveAs(filename)
+}
+
+// ToFile generates an Excel file from the ExcelData
+func (ed *ExcelData[T]) ToFile() *excelize.File {
+	f := excelize.NewFile()
 
 	// Write headers
 	for col, header := range ed.Headers {
@@ -71,7 +83,7 @@ func (ed *ExcelData[T]) ToExcel(filename string) error {
 		}
 	}
 
-	return f.SaveAs(filename)
+	return f
 }
 
 // FromExcel reads an Excel file into ExcelData
@@ -178,30 +190,70 @@ func setField(field reflect.Value, value interface{}) error {
 	return nil
 }
 
-// FromStruct converts a slice of struct T to ExcelData
+// FromStruct converts a slice of struct T to ExcelData, supporting nested structs
 func FromStruct[T comparable](data []T) (*ExcelData[T], error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("input slice is empty")
 	}
 
-	t := reflect.TypeOf(data[0])
-	headers := make([]string, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		headers[i] = t.Field(i).Name
+	headers, err := getStructHeaders(reflect.TypeOf(data[0]))
+	if err != nil {
+		return nil, err
 	}
 
 	ed := NewExcelData[T](headers)
 
 	for _, item := range data {
-		v := reflect.ValueOf(item)
-		row := make([]interface{}, t.NumField())
-		for j := 0; j < t.NumField(); j++ {
-			row[j] = v.Field(j).Interface()
+		row, err := getStructValues(reflect.ValueOf(item))
+		if err != nil {
+			return nil, err
 		}
 		ed.AddRow(row)
 	}
 
 	return ed, nil
+}
+
+// getStructHeaders returns a flattened list of headers for a struct, including nested structs
+func getStructHeaders(t reflect.Type) ([]string, error) {
+	var headers []string
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.Type.Kind() == reflect.Struct {
+			nestedHeaders, err := getStructHeaders(field.Type)
+			if err != nil {
+				return nil, err
+			}
+			for _, header := range nestedHeaders {
+				headers = append(headers, field.Name+" "+header)
+			}
+		} else {
+			headers = append(headers, field.Name)
+		}
+	}
+
+	return headers, nil
+}
+
+// getStructValues returns a flattened list of values for a struct, including nested structs
+func getStructValues(v reflect.Value) ([]interface{}, error) {
+	var values []interface{}
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		if field.Kind() == reflect.Struct {
+			nestedValues, err := getStructValues(field)
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, nestedValues...)
+		} else {
+			values = append(values, field.Interface())
+		}
+	}
+
+	return values, nil
 }
 
 // FormatImportErrors returns a formatted string of all import errors

@@ -74,6 +74,45 @@ func TestExcelDataOperations(t *testing.T) {
 		assert.Equal(t, []interface{}{"Alice", 30}, excelData.Rows[0])
 	})
 
+	t.Run("FromStruct with nested struct", func(t *testing.T) {
+		type Address struct {
+			Street string
+			City   string
+		}
+
+		type Person struct {
+			Name    string
+			Age     int
+			Address Address
+		}
+
+		data := []Person{
+			{
+				Name: "Alice",
+				Age:  30,
+				Address: Address{
+					Street: "123 Main St",
+					City:   "New York",
+				},
+			},
+			{
+				Name: "Bob",
+				Age:  25,
+				Address: Address{
+					Street: "456 Elm St",
+					City:   "San Francisco",
+				},
+			},
+		}
+
+		excelData, err := FromStruct(data)
+		assert.NoError(t, err)
+		assert.Equal(t, []string{"Name", "Age", "Address Street", "Address City"}, excelData.Headers)
+		assert.Len(t, excelData.Rows, 2)
+		assert.Equal(t, []interface{}{"Alice", 30, "123 Main St", "New York"}, excelData.Rows[0])
+		assert.Equal(t, []interface{}{"Bob", 25, "456 Elm St", "San Francisco"}, excelData.Rows[1])
+	})
+
 	t.Run("ToExcel", func(t *testing.T) {
 		excelData, _ := FromStruct(data)
 		err := excelData.ToExcel("test_people.xlsx")
