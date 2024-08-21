@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -129,18 +130,15 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 
 		for i, header := range ed.Headers {
 			if i < len(row) {
-				field := item.FieldByName(header)
-				if field.IsValid() && field.CanSet() {
-					err := setField(field, row[i])
-					if err != nil {
-						rowErrors = append(rowErrors, ImportError{
-							RowIndex: rowIndex + 2, // +2 because Excel rows are 1-indexed and we skip the header
-							Header:   header,
-							Value:    row[i],
-							Type:     field.Type(),
-							Err:      err,
-						})
-					}
+				err := setNestedField(item, header, row[i])
+				if err != nil {
+					rowErrors = append(rowErrors, ImportError{
+						RowIndex: rowIndex + 2, // +2 because Excel rows are 1-indexed and we skip the header
+						Header:   header,
+						Value:    row[i],
+						Type:     reflect.TypeOf(row[i]),
+						Err:      err,
+					})
 				}
 			}
 		}
@@ -157,8 +155,38 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 	}
 }
 
+// setNestedField sets the value of a potentially nested struct field
+func setNestedField(v reflect.Value, fieldPath string, value interface{}) error {
+	fields := strings.Split(fieldPath, " ")
+	for i, field := range fields {
+		if v.Kind() == reflect.Struct {
+			f := v.FieldByName(field)
+			if !f.IsValid() {
+				return fmt.Errorf("no such field: %s in obj", field)
+			}
+
+			if i == len(fields)-1 {
+				return setField(f, value)
+			}
+			v = f
+		} else {
+			return fmt.Errorf("not a struct")
+		}
+	}
+	return nil
+}
+
 // setField sets the value of a struct field, handling type conversions
 func setField(field reflect.Value, value interface{}) error {
+	if parser, ok := TypeParsers[field.Type()]; ok {
+		parsedValue, err := parser(fmt.Sprintf("%v", value))
+		if err != nil {
+			return fmt.Errorf("error parsing custom type: %v", err)
+		}
+		field.Set(reflect.ValueOf(parsedValue))
+		return nil
+	}
+
 	switch field.Kind() {
 	case reflect.String:
 		v, ok := value.(string)
@@ -220,7 +248,13 @@ func getStructHeaders(t reflect.Type) ([]string, error) {
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		if field.Type.Kind() == reflect.Struct {
+
+		// Skip unexported fields
+		if !field.IsExported() {
+			continue
+		}
+
+		if field.Type.Kind() == reflect.Struct && field.Type != reflect.TypeOf(time.Time{}) {
 			nestedHeaders, err := getStructHeaders(field.Type)
 			if err != nil {
 				return nil, err
@@ -236,20 +270,35 @@ func getStructHeaders(t reflect.Type) ([]string, error) {
 	return headers, nil
 }
 
-// getStructValues returns a flattened list of values for a struct, including nested structs
+// getStructValues returns a flattened list of values for a struct, including nested structs and custom types
 func getStructValues(v reflect.Value) ([]interface{}, error) {
 	var values []interface{}
 
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		if field.Kind() == reflect.Struct {
+		fieldType := v.Type().Field(i)
+
+		// Skip unexported fields
+		if !fieldType.IsExported() {
+			continue
+		}
+
+		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(time.Time{}) {
 			nestedValues, err := getStructValues(field)
 			if err != nil {
 				return nil, err
 			}
 			values = append(values, nestedValues...)
 		} else {
-			values = append(values, field.Interface())
+			value := field.Interface()
+			if converter, ok := TypeConverters[field.Type()]; ok {
+				convertedValue, err := converter(value)
+				if err != nil {
+					return nil, fmt.Errorf("error converting custom type: %v", err)
+				}
+				value = convertedValue
+			}
+			values = append(values, value)
 		}
 	}
 

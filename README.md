@@ -1,15 +1,16 @@
 # Excel Utility Package for Go
 
-This package provides a set of utilities for working with Excel files in Go, allowing easy conversion between Go structs (including nested structs) and Excel spreadsheets.
+This package provides a set of utilities for working with Excel files in Go, allowing easy conversion between Go structs (including nested structs and custom types) and Excel spreadsheets.
 
 ## Features
 
-- Convert slices of structs (including nested structs) to Excel files
+- Convert slices of structs (including nested structs and custom types) to Excel files
 - Read Excel files into slices of structs
 - Generic implementation for flexibility with different struct types
 - Error handling for import/export operations
 - Type-safe operations with Go generics
 - Support for nested structs with flattened headers
+- Custom type handling with user-definable converters and parsers
 
 ## Installation
 
@@ -28,13 +29,15 @@ go get github.com/stretchr/testify/assert # for running tests
 
 ## Usage
 
-Here's a quick example of how to use the main features of the package, including nested structs:
+Here's a quick example of how to use the main features of the package, including nested structs and custom types:
 
 ```go
 package main
 
 import (
     "fmt"
+    "time"
+    "reflect"
     "github.com/darmawan01/xlsx_utilities"
 )
 
@@ -43,14 +46,40 @@ type Address struct {
     City   string
 }
 
+type CustomID int
+
 type Person struct {
-    Name    string
-    Age     int
-    Address Address
+    Name      string
+    Age       int
+    Address   Address
+    BirthDate time.Time
+    ID        CustomID
+}
+
+func (c CustomID) String() string {
+    return fmt.Sprintf("ID-%05d", int(c))
 }
 
 func main() {
-    // Sample data with nested structs
+    // Register custom type handlers
+    xlsx_utilities.RegisterTypeConverter(reflect.TypeOf(CustomID(0)), func(i interface{}) (string, error) {
+        id, ok := i.(CustomID)
+        if !ok {
+            return "", fmt.Errorf("expected CustomID, got %T", i)
+        }
+        return id.String(), nil
+    })
+
+    xlsx_utilities.RegisterTypeParser(reflect.TypeOf(CustomID(0)), func(s string) (interface{}, error) {
+        var id int
+        _, err := fmt.Sscanf(s, "ID-%05d", &id)
+        if err != nil {
+            return nil, err
+        }
+        return CustomID(id), nil
+    })
+
+    // Sample data with nested structs and custom types
     data := []Person{
         {
             Name: "Alice",
@@ -59,6 +88,8 @@ func main() {
                 Street: "123 Main St",
                 City:   "New York",
             },
+            BirthDate: time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
+            ID:        CustomID(1),
         },
         {
             Name: "Bob",
@@ -67,6 +98,8 @@ func main() {
                 Street: "456 Elm St",
                 City:   "San Francisco",
             },
+            BirthDate: time.Date(1995, 5, 15, 0, 0, 0, 0, time.UTC),
+            ID:        CustomID(2),
         },
     }
 
@@ -116,13 +149,17 @@ func main() {
 - `ExcelData[T comparable]`: Represents Excel data for a given struct type T.
 - `ImportResult[T comparable]`: Represents the result of importing Excel data to a struct, including any errors.
 - `ImportError`: Represents an error that occurred during the import process.
+- `CustomTypeConverter`: Function type for custom type conversions.
+- `CustomTypeParser`: Function type for parsing custom types from strings.
 
 ### Functions
 
 - `NewExcelData[T comparable](headers []string) *ExcelData[T]`: Creates a new ExcelData instance.
-- `FromStruct[T comparable](data []T) (*ExcelData[T], error)`: Converts a slice of structs (including nested structs) to ExcelData.
+- `FromStruct[T comparable](data []T) (*ExcelData[T], error)`: Converts a slice of structs (including nested structs and custom types) to ExcelData.
 - `FromExcel[T comparable](filename string) (*ExcelData[T], error)`: Reads an Excel file into ExcelData.
 - `FormatImportErrors(errors []ImportError) string`: Formats import errors into a readable string.
+- `RegisterTypeConverter(t reflect.Type, converter CustomTypeConverter)`: Registers a custom type converter.
+- `RegisterTypeParser(t reflect.Type, parser CustomTypeParser)`: Registers a custom type parser.
 
 ### Methods
 
@@ -134,11 +171,19 @@ func main() {
 
 ## Nested Struct Support
 
-The package now supports nested structs when converting to and from Excel files. When using nested structs:
+The package supports nested structs when converting to and from Excel files. Headers for nested fields are flattened using space notation (e.g., "Address Street", "Address City").
 
-- Headers for nested fields are flattened using space notation (e.g., "Address Street", "Address City").
-- Values from nested structs are flattened into a single row in the Excel file.
-- When reading from Excel, the flattened structure is correctly mapped back to the nested struct.
+## Custom Type Handling
+
+The package now supports custom type handling through user-definable converters and parsers. Users can register custom type handlers for any type they need to work with in their Excel conversions. This allows for seamless integration of complex or domain-specific types in your Excel operations.
+
+To use custom type handling:
+
+1. Define your custom type and its string representation method (if needed).
+2. Register a custom type converter using `RegisterTypeConverter`.
+3. Register a custom type parser using `RegisterTypeParser`.
+
+The package will then automatically use these handlers when converting to and from Excel.
 
 ## Contributing
 
