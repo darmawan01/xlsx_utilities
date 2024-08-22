@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -154,134 +153,37 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 	}
 }
 
-// setNestedField sets the value of a potentially nested struct field
-func setNestedField(v reflect.Value, fieldPath string, value interface{}) error {
-	fields := strings.Split(fieldPath, " ")
-	for i, field := range fields {
-		if v.Kind() == reflect.Ptr {
-			if v.IsNil() {
-				v.Set(reflect.New(v.Type().Elem()))
-			}
-			v = v.Elem()
-		}
-
-		if v.Kind() != reflect.Struct {
-			return fmt.Errorf("not a struct")
-		}
-
-		f := v.FieldByName(field)
-		if !f.IsValid() {
-			return fmt.Errorf("no such field: %s in obj", field)
-		}
-
-		if i == len(fields)-1 {
-			return setField(f, value)
-		}
-		v = f
-	}
-	return nil
-}
-
 // FromStruct converts a slice of struct T to ExcelData, supporting nested structs
 func FromStruct[T comparable](data []T) (*ExcelData[T], error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("input slice is empty")
 	}
 
-	headers, err := getStructHeaders(reflect.TypeOf(data[0]))
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	headers, err := getStructHeaders(t)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting headers: %v", err)
 	}
 
 	ed := NewExcelData[T](headers)
 
-	for _, item := range data {
+	for i, item := range data {
 		row, err := getStructValues(reflect.ValueOf(item))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error getting values for item %d: %v", i, err)
 		}
-		ed.AddRow(row)
+
+		if len(row) != len(headers) {
+			return nil, fmt.Errorf("mismatch between headers (%d) and values (%d) for item %d", len(headers), len(row), i)
+		}
+
+		err = ed.AddRow(row)
+		if err != nil {
+			return nil, fmt.Errorf("error adding row %d: %v", i, err)
+		}
 	}
 
 	return ed, nil
-}
-
-// getStructHeaders returns a flattened list of headers for a struct, including nested structs
-func getStructHeaders(t reflect.Type) ([]string, error) {
-	var headers []string
-
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-
-		// Skip unexported fields
-		if !field.IsExported() {
-			continue
-		}
-
-		fieldType := field.Type
-		// If it's a pointer, get the element type
-		if fieldType.Kind() == reflect.Ptr {
-			fieldType = fieldType.Elem()
-		}
-
-		if fieldType.Kind() == reflect.Struct && fieldType != reflect.TypeOf(time.Time{}) {
-			nestedHeaders, err := getStructHeaders(fieldType)
-			if err != nil {
-				return nil, err
-			}
-			for _, header := range nestedHeaders {
-				headers = append(headers, field.Name+" "+header)
-			}
-		} else {
-			headers = append(headers, field.Name)
-		}
-	}
-
-	return headers, nil
-}
-
-// getStructValues returns a flattened list of values for a struct, including nested structs and custom types
-func getStructValues(v reflect.Value) ([]interface{}, error) {
-	var values []interface{}
-
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldType := v.Type().Field(i)
-
-		// Skip unexported fields
-		if !fieldType.IsExported() {
-			continue
-		}
-
-		// Dereference pointer if needed
-		if field.Kind() == reflect.Ptr {
-			if field.IsNil() {
-				values = append(values, nil)
-				continue
-			}
-			field = field.Elem()
-		}
-
-		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(time.Time{}) {
-			nestedValues, err := getStructValues(field)
-			if err != nil {
-				return nil, err
-			}
-			values = append(values, nestedValues...)
-		} else {
-			value := field.Interface()
-			if converter, ok := TypeConverters[field.Type()]; ok {
-				convertedValue, err := converter(value)
-				if err != nil {
-					return nil, fmt.Errorf("error converting custom type: %v", err)
-				}
-				value = convertedValue
-			}
-			values = append(values, value)
-		}
-	}
-
-	return values, nil
 }
 
 // FormatImportErrors returns a formatted string of all import errors

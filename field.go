@@ -4,159 +4,144 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
+func setNestedField(v reflect.Value, fieldPath string, value interface{}) error {
+	fields := strings.Split(fieldPath, " ")
+	for i, field := range fields {
+		if v.Kind() == reflect.Ptr {
+			if v.IsNil() {
+				v.Set(reflect.New(v.Type().Elem()))
+			}
+			v = v.Elem()
+		}
+
+		if v.Kind() != reflect.Struct {
+			return fmt.Errorf("not a struct: %v", v.Kind())
+		}
+
+		f := v.FieldByName(field)
+		if !f.IsValid() {
+			return fmt.Errorf("no such field: %s in obj", field)
+		}
+
+		if i == len(fields)-1 {
+			return setField(f, value)
+		}
+
+		if f.Kind() == reflect.Ptr {
+			if f.IsNil() {
+				f.Set(reflect.New(f.Type().Elem()))
+			}
+			v = f.Elem()
+		} else if f.Kind() == reflect.Slice {
+			if f.IsNil() {
+				f.Set(reflect.MakeSlice(f.Type(), 0, 0))
+			}
+			newElem := reflect.New(f.Type().Elem()).Elem()
+			f.Set(reflect.Append(f, newElem))
+			v = f.Index(f.Len() - 1)
+		} else {
+			v = f
+		}
+	}
+	return nil
+}
+
 // setField sets the value of a struct field, handling type conversions
 func setField(field reflect.Value, value interface{}) error {
+	if !field.CanSet() {
+		return fmt.Errorf("cannot set field")
+	}
+
 	// Handle pointer types
 	if field.Kind() == reflect.Ptr {
 		if field.IsNil() {
 			field.Set(reflect.New(field.Type().Elem()))
 		}
-		field = field.Elem()
+		return setField(field.Elem(), value)
 	}
 
-	// Check for custom type parser
-	if parser, ok := TypeParsers[field.Type()]; ok {
-		parsedValue, err := parser(fmt.Sprintf("%v", value))
-		if err != nil {
-			return fmt.Errorf("error parsing custom type: %v", err)
-		}
-		field.Set(reflect.ValueOf(parsedValue))
-		return nil
-	}
+	val := reflect.ValueOf(value)
 
-	// Handle built-in types
 	switch field.Kind() {
 	case reflect.String:
-		s, err := toString(value)
-		if err != nil {
-			return err
+		if val.Kind() == reflect.String {
+			field.SetString(val.String())
+		} else {
+			field.SetString(fmt.Sprintf("%v", value))
 		}
-		field.SetString(s)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		i, err := toInt64(value)
+		intVal, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
 		if err != nil {
 			return err
 		}
-		field.SetInt(i)
+		field.SetInt(intVal)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		u, err := toUint64(value)
+		uintVal, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
 		if err != nil {
 			return err
 		}
-		field.SetUint(u)
+		field.SetUint(uintVal)
 	case reflect.Float32, reflect.Float64:
-		f, err := toFloat64(value)
+		floatVal, err := strconv.ParseFloat(fmt.Sprintf("%v", value), 64)
 		if err != nil {
 			return err
 		}
-		field.SetFloat(f)
+		field.SetFloat(floatVal)
 	case reflect.Bool:
-		b, err := toBool(value)
+		boolVal, err := strconv.ParseBool(fmt.Sprintf("%v", value))
 		if err != nil {
 			return err
 		}
-		field.SetBool(b)
+		field.SetBool(boolVal)
 	case reflect.Struct:
-		// Handle time.Time as a special case
 		if field.Type() == reflect.TypeOf(time.Time{}) {
-			t, err := toTime(value)
+			timeVal, err := time.Parse(time.RFC3339, fmt.Sprintf("%v", value))
 			if err != nil {
 				return err
 			}
-			field.Set(reflect.ValueOf(t))
+			field.Set(reflect.ValueOf(timeVal))
 		} else {
-			return fmt.Errorf("unsupported struct type: %v", field.Type())
+			// For other struct types, we'll assume the value is a map
+			if mapValue, ok := value.(map[string]interface{}); ok {
+				for key, val := range mapValue {
+					err := setNestedField(field, key, val)
+					if err != nil {
+						return err
+					}
+				}
+			} else {
+				return fmt.Errorf("unsupported struct type: %v", field.Type())
+			}
 		}
+	case reflect.Slice:
+		return setSliceField(field, value)
 	default:
 		return fmt.Errorf("unsupported type: %v", field.Type())
 	}
+
 	return nil
 }
 
-// Add this new helper function
-func toString(value interface{}) (string, error) {
-	switch v := value.(type) {
-	case string:
-		return v, nil
-	case fmt.Stringer:
-		return v.String(), nil
-	default:
-		return fmt.Sprintf("%v", v), nil
+func setSliceField(field reflect.Value, value interface{}) error {
+	sliceValue := reflect.ValueOf(value)
+	if sliceValue.Kind() != reflect.Slice {
+		return fmt.Errorf("expected slice, got %v", sliceValue.Kind())
 	}
-}
 
-// Helper functions for type conversion
-func toInt64(value interface{}) (int64, error) {
-	switch v := value.(type) {
-	case int:
-		return int64(v), nil
-	case int64:
-		return v, nil
-	case float64:
-		return int64(v), nil
-	case string:
-		return strconv.ParseInt(v, 10, 64)
-	default:
-		return 0, fmt.Errorf("cannot convert %v to int64", value)
-	}
-}
+	sliceType := field.Type()
+	slice := reflect.MakeSlice(sliceType, sliceValue.Len(), sliceValue.Len())
 
-func toUint64(value interface{}) (uint64, error) {
-	switch v := value.(type) {
-	case uint:
-		return uint64(v), nil
-	case uint64:
-		return v, nil
-	case float64:
-		if v < 0 {
-			return 0, fmt.Errorf("cannot convert negative float64 to uint64")
+	for i := 0; i < sliceValue.Len(); i++ {
+		err := setField(slice.Index(i), sliceValue.Index(i).Interface())
+		if err != nil {
+			return err
 		}
-		return uint64(v), nil
-	case string:
-		return strconv.ParseUint(v, 10, 64)
-	default:
-		return 0, fmt.Errorf("cannot convert %v to uint64", value)
 	}
-}
 
-func toFloat64(value interface{}) (float64, error) {
-	switch v := value.(type) {
-	case float64:
-		return v, nil
-	case int:
-		return float64(v), nil
-	case int64:
-		return float64(v), nil
-	case string:
-		return strconv.ParseFloat(v, 64)
-	default:
-		return 0, fmt.Errorf("cannot convert %v to float64", value)
-	}
-}
-
-func toBool(value interface{}) (bool, error) {
-	switch v := value.(type) {
-	case bool:
-		return v, nil
-	case string:
-		return strconv.ParseBool(v)
-	case int:
-		return v != 0, nil
-	default:
-		return false, fmt.Errorf("cannot convert %v to bool", value)
-	}
-}
-
-func toTime(value interface{}) (time.Time, error) {
-	switch v := value.(type) {
-	case time.Time:
-		return v, nil
-	case string:
-		return time.Parse(time.RFC3339, v)
-	default:
-		return time.Time{}, fmt.Errorf("cannot convert %v to time.Time", value)
-	}
+	field.Set(slice)
+	return nil
 }

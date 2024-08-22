@@ -58,3 +58,58 @@ func TestSetField(t *testing.T) {
 		})
 	}
 }
+
+func TestToStructWithNestedAndArrays(t *testing.T) {
+	type Address struct {
+		Street string
+		City   string
+	}
+
+	type Contact struct {
+		Email string
+		Phone string
+	}
+
+	type Person struct {
+		Name     string
+		Age      int
+		Address  Address
+		Contacts []Contact
+	}
+
+	headers := []string{
+		"Name", "Age",
+		"Address Street", "Address City",
+		"Contacts Email", "Contacts Phone",
+	}
+
+	rows := [][]interface{}{
+		{"Alice", 30, "123 Main St", "New York", "alice@example.com", "123-456-7890"},
+		{"Bob", 25, "456 Elm St", "San Francisco", "bob@example.com", "987-654-3210"},
+	}
+
+	excelData := &ExcelData[*Person]{Headers: headers, Rows: rows}
+
+	result := excelData.ToStruct()
+
+	assert.Empty(t, result.Errors)
+	assert.Len(t, result.Data, 2)
+
+	// Check first person
+	assert.Equal(t, "Alice", result.Data[0].Name)
+	assert.Equal(t, 30, result.Data[0].Age)
+	assert.Equal(t, "123 Main St", result.Data[0].Address.Street)
+	assert.Equal(t, "New York", result.Data[0].Address.City)
+	assert.Len(t, result.Data[0].Contacts, 1)
+	assert.Equal(t, "alice@example.com", result.Data[0].Contacts[0].Email)
+	assert.Equal(t, "123-456-7890", result.Data[0].Contacts[0].Phone)
+
+	// Check second person
+	assert.Equal(t, "Bob", result.Data[1].Name)
+	assert.Equal(t, 25, result.Data[1].Age)
+	assert.Equal(t, "456 Elm St", result.Data[1].Address.Street)
+	assert.Equal(t, "San Francisco", result.Data[1].Address.City)
+	assert.Len(t, result.Data[1].Contacts, 1)
+	assert.Equal(t, "bob@example.com", result.Data[1].Contacts[0].Email)
+	assert.Equal(t, "987-654-3210", result.Data[1].Contacts[0].Phone)
+}
