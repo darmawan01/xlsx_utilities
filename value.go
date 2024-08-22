@@ -13,7 +13,7 @@ func getStructValues(v reflect.Value) ([]interface{}, error) {
 func getNestedValues(v reflect.Value) ([]interface{}, error) {
 	if v.Kind() == reflect.Ptr {
 		if v.IsNil() {
-			return []interface{}{nil}, nil
+			return []interface{}{""}, nil // Return empty string for nil pointer
 		}
 		v = v.Elem()
 	}
@@ -55,7 +55,7 @@ func getNestedValues(v reflect.Value) ([]interface{}, error) {
 		switch field.Kind() {
 		case reflect.Ptr:
 			if field.IsNil() {
-				values = append(values, nil)
+				values = append(values, "")
 			} else {
 				nestedValues, err := getNestedValues(field.Elem())
 				if err != nil {
@@ -89,24 +89,31 @@ func getNestedValues(v reflect.Value) ([]interface{}, error) {
 
 func getFirstSliceValue(slice reflect.Value) ([]interface{}, error) {
 	if slice.Len() == 0 {
-		return []interface{}{nil}, nil
+		return []interface{}{""}, nil
 	}
 
 	firstElem := slice.Index(0)
-
-	// Handle pointer to struct
 	if firstElem.Kind() == reflect.Ptr {
 		if firstElem.IsNil() {
-			return []interface{}{nil}, nil
+			return []interface{}{""}, nil
 		}
 		firstElem = firstElem.Elem()
 	}
 
-	// If it's a struct, we need to flatten it
 	if firstElem.Kind() == reflect.Struct {
-		return getNestedValues(firstElem)
+		// Flatten the first struct element
+		flattenedValues, err := getNestedValues(firstElem)
+		if err != nil {
+			return nil, err
+		}
+
+		emptyValues := make([]interface{}, 0, len(flattenedValues))
+		// Pad the rest of the slice with empty strings
+		for i := 0; i < len(flattenedValues); i++ {
+			emptyValues = append(emptyValues, "")
+		}
+		return emptyValues, nil
 	}
 
-	// For non-struct types, just return the value
-	return []interface{}{firstElem.Interface()}, nil
+	return []interface{}{""}, nil
 }
