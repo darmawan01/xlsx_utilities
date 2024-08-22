@@ -70,19 +70,38 @@ func (ed *ExcelData[T]) ToFile() *excelize.File {
 
 	// Write headers
 	for col, header := range ed.Headers {
-		cell := fmt.Sprintf("%c1", 'A'+col)
+		cell := fmt.Sprintf("%s1", intToExcelColumn(col))
 		f.SetCellValue("Sheet1", cell, header)
 	}
 
 	// Write data
 	for rowIndex, row := range ed.Rows {
 		for col, value := range row {
-			cell := fmt.Sprintf("%c%d", 'A'+col, rowIndex+2)
+			cell := fmt.Sprintf("%s%d", intToExcelColumn(col), rowIndex+2)
 			f.SetCellValue("Sheet1", cell, value)
 		}
 	}
 
 	return f
+}
+
+// intToExcelColumn converts a 0-based column index to an Excel column name (A, B, C, ..., Z, AA, AB, etc.)
+func intToExcelColumn(n int) string {
+	result := ""
+	for n >= 0 {
+		result = string(rune('A'+n%26)) + result
+		n = n/26 - 1
+	}
+	return result
+}
+
+// excelColumnToInt converts an Excel column name to a 0-based column index
+func excelColumnToInt(columnName string) int {
+	result := 0
+	for _, char := range columnName {
+		result = result*26 + int(char-'A') + 1
+	}
+	return result - 1
 }
 
 // FromExcel reads an Excel file into ExcelData
