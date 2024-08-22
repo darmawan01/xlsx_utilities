@@ -266,22 +266,22 @@ func TestToStructWithTypeMismatch(t *testing.T) {
 
 	result := excelData.ToStruct()
 	assert.Len(t, result.Errors, 1)
-	assert.Contains(t, result.Errors[0].Error(), "cannot convert '30' to string")
+	assert.Contains(t, result.Errors[0].Error(), "value is not a string")
 	assert.Len(t, result.Data, 0) // No valid data due to type mismatch
 }
 
 func TestSetFieldWithUnsupportedType(t *testing.T) {
 	type UnsupportedPerson struct {
 		Name string
-		Data []byte // Unsupported type
+		Data []string // Unsupported type
 	}
 
-	value := []byte("some data")
+	value := "some data"
 	field := reflect.ValueOf(&UnsupportedPerson{}).Elem().FieldByName("Data")
 
 	err := setField(field, value)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported type: []uint8")
+	assert.Contains(t, err.Error(), "expected slice, got string")
 }
 
 func TestPointerHandling(t *testing.T) {

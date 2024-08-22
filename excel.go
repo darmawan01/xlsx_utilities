@@ -173,9 +173,9 @@ func FromStruct[T comparable](data []T) (*ExcelData[T], error) {
 			return nil, fmt.Errorf("error getting values for item %d: %v", i, err)
 		}
 
-		// if len(row) != len(headers) {
-		// 	return nil, fmt.Errorf("mismatch between headers (%d) and values (%d) for item %d", len(headers), len(row), i)
-		// }
+		if len(row) != len(headers) {
+			return nil, fmt.Errorf("mismatch between headers (%d) and values (%d) for item %d", len(headers), len(row), i)
+		}
 
 		err = ed.AddRow(row)
 		if err != nil {

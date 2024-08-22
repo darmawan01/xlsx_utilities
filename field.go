@@ -1,6 +1,7 @@
 package xlsx_utilities
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -28,6 +29,16 @@ func setNestedField(v reflect.Value, fieldPath string, value interface{}) error 
 		}
 
 		if i == len(fields)-1 {
+			// Check if there's a custom type converter
+			if converter, ok := TypeParsers[f.Type()]; ok {
+				convertedValue, err := converter(fmt.Sprintf("%v", value))
+				if err != nil {
+					return fmt.Errorf("error parsing custom type: %v", err)
+				}
+				f.Set(reflect.ValueOf(convertedValue))
+				return nil
+			}
+
 			return setField(f, value)
 		}
 
@@ -64,6 +75,16 @@ func setField(field reflect.Value, value interface{}) error {
 		return setField(field.Elem(), value)
 	}
 
+	// Check if there's a custom type converter
+	if converter, ok := TypeParsers[field.Type()]; ok {
+		convertedValue, err := converter(fmt.Sprintf("%v", value))
+		if err != nil {
+			return fmt.Errorf("error parsing custom type: %v", err)
+		}
+		field.Set(reflect.ValueOf(convertedValue))
+		return nil
+	}
+
 	val := reflect.ValueOf(value)
 
 	switch field.Kind() {
@@ -71,7 +92,7 @@ func setField(field reflect.Value, value interface{}) error {
 		if val.Kind() == reflect.String {
 			field.SetString(val.String())
 		} else {
-			field.SetString(fmt.Sprintf("%v", value))
+			return errors.New("value is not a string")
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		intVal, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
