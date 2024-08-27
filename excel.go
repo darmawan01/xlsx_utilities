@@ -160,10 +160,10 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 			}
 		}
 
-		importErrors = append(importErrors, rowErrors...)
 		if len(rowErrors) == 0 {
 			result = append(result, item.Interface().(T))
 		}
+		importErrors = append(importErrors, rowErrors...)
 	}
 
 	return ImportResult[T]{

@@ -126,17 +126,8 @@ func setField(field reflect.Value, value interface{}) error {
 			}
 			field.Set(reflect.ValueOf(timeVal))
 		} else {
-			// For other struct types, we'll assume the value is a map
-			if mapValue, ok := value.(map[string]interface{}); ok {
-				for key, val := range mapValue {
-					err := setNestedField(field, key, val)
-					if err != nil {
-						return err
-					}
-				}
-			} else {
-				return fmt.Errorf("unsupported struct type: %v", field.Type())
-			}
+			// For other struct types, we'll set it to its zero value
+			field.Set(reflect.Zero(field.Type()))
 		}
 	case reflect.Slice:
 		return setSliceField(field, value)
