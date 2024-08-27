@@ -28,6 +28,7 @@ type ComplexStruct struct {
 	Height       *float64
 	IsActive     *bool
 	Tags         *[]string
+	String       string
 	ContactInfos []*ContactInfo
 }
 
@@ -52,6 +53,7 @@ func TestComplexPointerStruct(t *testing.T) {
 			Height:    float64Ptr(165.5),
 			IsActive:  boolPtr(true),
 			Tags:      &[]string{"tag1", "tag2"},
+			String:    "121414141413",
 			ContactInfos: []*ContactInfo{
 				{
 					Email: strPtr("alice@example.com"),
@@ -82,6 +84,7 @@ func TestComplexPointerStruct(t *testing.T) {
 			Height:    float64Ptr(180.0),
 			IsActive:  boolPtr(false),
 			Tags:      &[]string{"tag3", "tag4"},
+			String:    "121414141413",
 			ContactInfos: []*ContactInfo{
 				{
 					Email: strPtr("bob@example.com"),
@@ -103,7 +106,7 @@ func TestComplexPointerStruct(t *testing.T) {
 
 		expectedHeaders := []string{
 			"ID", "Name", "BirthDate", "Height", "IsActive",
-			"Tags",
+			"Tags", "String",
 			"ContactInfos Email", "ContactInfos Phone", "ContactInfos Address Street", "ContactInfos Address City", "ContactInfos Address ZIP", "ContactInfos Verified",
 		}
 		assert.Equal(t, expectedHeaders, excelData.Headers)
@@ -116,6 +119,7 @@ func TestComplexPointerStruct(t *testing.T) {
 		assert.Equal(t, "1990-01-01T00:00:00Z", excelData.Rows[0][2])
 		assert.Equal(t, 165.5, excelData.Rows[0][3])
 		assert.Equal(t, true, excelData.Rows[0][4])
+		assert.Equal(t, "121414141413", excelData.Rows[0][6])
 
 		excelData.Save("test.xlsx")
 		// assert.Equal(t, "tag1", excelData.Rows[0][5])
@@ -127,6 +131,8 @@ func TestComplexPointerStruct(t *testing.T) {
 		// assert.Equal(t, "New York", excelData.Rows[0][9])
 		// assert.Equal(t, 10001, excelData.Rows[0][10])
 		// assert.Equal(t, true, excelData.Rows[0][11])
+
+		os.Remove("test.xlsx")
 	})
 	t.Run("Write to file and read back", func(t *testing.T) {
 		filename := "test_complex_data.xlsx"
@@ -157,6 +163,7 @@ func TestComplexPointerStruct(t *testing.T) {
 				assert.True(t, original.BirthDate.Equal(*converted.BirthDate))
 				assert.Equal(t, *original.Height, *converted.Height)
 				assert.Equal(t, *original.IsActive, *converted.IsActive)
+				assert.Equal(t, original.String, converted.String)
 				// assert.Equal(t, *original.Tags, *converted.Tags)
 
 				// assert.Len(t, converted.ContactInfos, len(original.ContactInfos))

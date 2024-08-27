@@ -1,7 +1,6 @@
 package xlsx_utilities
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -92,7 +91,7 @@ func setField(field reflect.Value, value interface{}) error {
 		if val.Kind() == reflect.String {
 			field.SetString(val.String())
 		} else {
-			return errors.New("value is not a string")
+			field.SetString(fmt.Sprintf("%v", value))
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		intVal, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
@@ -130,7 +129,8 @@ func setField(field reflect.Value, value interface{}) error {
 			field.Set(reflect.Zero(field.Type()))
 		}
 	case reflect.Slice:
-		return setSliceField(field, value)
+		field.Set(reflect.Zero(field.Type()))
+		// return setSliceField(field, value)
 	default:
 		return fmt.Errorf("unsupported type: %v", field.Type())
 	}
