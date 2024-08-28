@@ -13,7 +13,7 @@ func getStructValues(v reflect.Value) ([]interface{}, error) {
 func getNestedValues(v reflect.Value) ([]interface{}, error) {
 	if v.Kind() == reflect.Ptr {
 		if v.IsNil() {
-			return []interface{}{""}, nil // Return empty string for nil pointer
+			return []interface{}{getDefaultValue(v.Type().Elem())}, nil
 		}
 		v = v.Elem()
 	}
@@ -55,7 +55,7 @@ func getNestedValues(v reflect.Value) ([]interface{}, error) {
 		switch field.Kind() {
 		case reflect.Ptr:
 			if field.IsNil() {
-				values = append(values, "")
+				values = append(values, getDefaultValue(field.Type().Elem()))
 			} else {
 				nestedValues, err := getNestedValues(field.Elem())
 				if err != nil {
@@ -89,13 +89,13 @@ func getNestedValues(v reflect.Value) ([]interface{}, error) {
 
 func getFirstSliceValue(slice reflect.Value) ([]interface{}, error) {
 	if slice.Len() == 0 {
-		return []interface{}{""}, nil
+		return []interface{}{getDefaultValue(slice.Type().Elem())}, nil
 	}
 
 	firstElem := slice.Index(0)
 	if firstElem.Kind() == reflect.Ptr {
 		if firstElem.IsNil() {
-			return []interface{}{""}, nil
+			return []interface{}{getDefaultValue(firstElem.Type().Elem())}, nil
 		}
 		firstElem = firstElem.Elem()
 	}
@@ -116,4 +116,21 @@ func getFirstSliceValue(slice reflect.Value) ([]interface{}, error) {
 	}
 
 	return []interface{}{""}, nil
+}
+
+func getDefaultValue(t reflect.Type) interface{} {
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return int64(0)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return uint64(0)
+	case reflect.Float32, reflect.Float64:
+		return float64(0)
+	case reflect.Bool:
+		return false
+	case reflect.String:
+		return ""
+	default:
+		return nil
+	}
 }
