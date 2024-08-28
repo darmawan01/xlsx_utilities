@@ -2,6 +2,7 @@ package xlsx_utilities
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 
@@ -106,7 +107,13 @@ func excelColumnToInt(columnName string) int {
 
 // FromExcel reads an Excel file into ExcelData
 func FromExcel[T comparable](filename string) (*ExcelData[T], error) {
-	f, err := excelize.OpenFile(filename)
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	f, err := excelize.OpenReader(file)
 	if err != nil {
 		return nil, err
 	}
