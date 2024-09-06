@@ -47,7 +47,7 @@ func main() {
 
 	if len(result.Errors) > 0 {
 		fmt.Println("Import errors occurred:")
-		fmt.Println(FormatImportErrors(result.Errors))
+		fmt.Println(result.FormatImportErrors())
 	} else {
 		fmt.Println("No import errors")
 	}
