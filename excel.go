@@ -1,10 +1,10 @@
 package xlsx_utilities
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
-	"strings"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -32,7 +32,7 @@ type ImportResult[T comparable] struct {
 
 // Error returns a string representation of the ImportError
 func (e ImportError) Error() string {
-	return fmt.Sprintf("Row %d, Column '%s': cannot convert '%v' to type %v: %v", e.RowIndex, e.Header, e.Value, e.Type, e.Err)
+	return fmt.Sprintf("Row %d, Column '%s': cannot convert '%v' to type %v", e.RowIndex, e.Header, e.Value, e.Type)
 }
 
 // NewExcelData creates a new ExcelData instance
@@ -106,14 +106,38 @@ func excelColumnToInt(columnName string) int {
 }
 
 // FromExcel reads an Excel file into ExcelData
-func FromExcel[T comparable](filename string) (*ExcelData[T], error) {
-	file, err := os.Open(filename)
+func FromFileExcel[T comparable](file *bytes.Reader) (*ExcelData[T], error) {
+	f, err := excelize.OpenReader(file)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer f.Close()
 
-	f, err := excelize.OpenReader(file)
+	rows, err := f.GetRows("Sheet1")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(rows) < 2 {
+		return nil, fmt.Errorf("excel file is empty or has no data rows")
+	}
+
+	ed := NewExcelData[T](rows[0])
+
+	for _, row := range rows[1:] {
+		interfaceRow := make([]interface{}, len(row))
+		for i, cell := range row {
+			interfaceRow[i] = convertCellValue(cell)
+		}
+		ed.Rows = append(ed.Rows, interfaceRow)
+	}
+
+	return ed, nil
+}
+
+// FromExcel reads an Excel file into ExcelData
+func FromExcel[T comparable](filename string) (*ExcelData[T], error) {
+	f, err := excelize.OpenFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -156,11 +180,16 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 			if i < len(row) {
 				err := setNestedField(item, header, row[i])
 				if err != nil {
+					fieldType := item.FieldByName(header).Type()
+					if fieldType.Kind() == reflect.Ptr {
+						fieldType = fieldType.Elem()
+					}
+
 					rowErrors = append(rowErrors, ImportError{
 						RowIndex: rowIndex + 2, // +2 because Excel rows are 1-indexed and we skip the header
 						Header:   header,
 						Value:    row[i],
-						Type:     reflect.TypeOf(row[i]),
+						Type:     fieldType,
 						Err:      err,
 					})
 				}
@@ -213,11 +242,13 @@ func FromStruct[T comparable](data []T) (*ExcelData[T], error) {
 }
 
 // FormatImportErrors returns a formatted string of all import errors
-func FormatImportErrors(errors []ImportError) string {
-	var sb strings.Builder
-	for _, err := range errors {
-		sb.WriteString(err.Error())
-		sb.WriteString("\n")
+func (i *ImportResult[T]) FormatImportErrors() []byte {
+	errs := make([]string, 0)
+
+	for _, err := range i.Errors {
+		errs = append(errs, err.Error())
 	}
-	return sb.String()
+
+	out, _ := json.Marshal(errs)
+	return out
 }

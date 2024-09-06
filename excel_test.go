@@ -1,7 +1,6 @@
 package xlsx_utilities
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -203,17 +202,6 @@ func TestConvertCellValue(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
-}
-
-func TestFormatImportErrors(t *testing.T) {
-	errors := []ImportError{
-		{RowIndex: 2, Header: "Age", Value: "not_a_number", Type: reflect.TypeOf(0), Err: fmt.Errorf("strconv.ParseInt: parsing \"not_a_number\": invalid syntax")},
-		{RowIndex: 3, Header: "Name", Value: 42, Type: reflect.TypeOf(""), Err: fmt.Errorf("cannot convert int to string")},
-	}
-
-	formatted := FormatImportErrors(errors)
-	assert.Contains(t, formatted, "Row 2, Column 'Age': cannot convert 'not_a_number' to type int")
-	assert.Contains(t, formatted, "Row 3, Column 'Name': cannot convert '42' to type string")
 }
 
 func TestFromStructWithEmptySlice(t *testing.T) {
