@@ -96,25 +96,28 @@ func setField(field reflect.Value, value interface{}) error {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		intVal, err := strconv.ParseInt(fmt.Sprintf("%v", value), 10, 64)
 		if err != nil {
-			return err
+			field.Set(reflect.Zero(field.Type()))
+		} else {
+			field.SetInt(intVal)
 		}
-		field.SetInt(intVal)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		uintVal, err := strconv.ParseUint(fmt.Sprintf("%v", value), 10, 64)
 		if err != nil {
-			return err
+			field.Set(reflect.Zero(field.Type()))
+		} else {
+			field.SetUint(uintVal)
 		}
-		field.SetUint(uintVal)
 	case reflect.Float32, reflect.Float64:
 		floatVal, err := strconv.ParseFloat(fmt.Sprintf("%v", value), 64)
 		if err != nil {
-			return err
+			field.Set(reflect.Zero(field.Type()))
+		} else {
+			field.SetFloat(floatVal)
 		}
-		field.SetFloat(floatVal)
 	case reflect.Bool:
 		boolVal, err := strconv.ParseBool(fmt.Sprintf("%v", value))
 		if err != nil {
-			return err
+			field.SetBool(false)
 		}
 		field.SetBool(boolVal)
 	case reflect.Struct:
