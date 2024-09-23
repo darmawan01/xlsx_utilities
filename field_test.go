@@ -113,3 +113,7 @@ func TestToStructWithNestedAndArrays(t *testing.T) {
 	assert.Equal(t, "bob@example.com", result.Data[1].Contacts[0].Email)
 	assert.Equal(t, "987-654-3210", result.Data[1].Contacts[0].Phone)
 }
+
+func TestXXX(t *testing.T) {
+	assert.True(t, reflect.Zero(reflect.TypeOf(time.Time{})).IsZero(), "Is zero")
+}
