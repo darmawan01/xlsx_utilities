@@ -116,4 +116,9 @@ func TestToStructWithNestedAndArrays(t *testing.T) {
 
 func TestXXX(t *testing.T) {
 	assert.True(t, reflect.Zero(reflect.TypeOf(time.Time{})).IsZero(), "Is zero")
+
+	a := time.Time{}
+	x := reflect.ValueOf(a)
+	x.Set(reflect.Zero(x.Type()))
+	assert.True(t, x.IsZero(), "Is zero")
 }
