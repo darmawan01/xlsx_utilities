@@ -35,7 +35,7 @@ func setNestedField(v reflect.Value, fieldPath string, value interface{}) error 
 					return fmt.Errorf("error parsing custom type: %v", err)
 				}
 
-				if reflect.ValueOf(convertedValue).IsNil() {
+				if reflect.ValueOf(convertedValue).IsZero() {
 					f.Set(reflect.Zero(f.Type()))
 					return nil
 				}
@@ -87,7 +87,7 @@ func setField(field reflect.Value, value interface{}) error {
 			return fmt.Errorf("error parsing custom type: %v", err)
 		}
 
-		if reflect.ValueOf(convertedValue).IsNil() {
+		if reflect.ValueOf(convertedValue).IsZero() {
 			field.Set(reflect.Zero(field.Type()))
 			return nil
 		}
