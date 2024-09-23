@@ -36,7 +36,6 @@ func setNestedField(v reflect.Value, fieldPath string, value interface{}) error 
 				}
 
 				if convertedValue == nil {
-					f.Set(reflect.Zero(f.Type()))
 					return nil
 				}
 
@@ -88,7 +87,6 @@ func setField(field reflect.Value, value interface{}) error {
 		}
 
 		if convertedValue == nil {
-			field.Set(reflect.Zero(field.Type()))
 			return nil
 		}
 
