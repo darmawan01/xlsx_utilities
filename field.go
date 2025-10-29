@@ -27,7 +27,7 @@ func setNestedField(v reflect.Value, fieldPath string, value interface{}) error 
 			var err error
 			f, err = getFieldValueByTagExcel(v, field)
 			if err != nil {
-				return fmt.Errorf("error getting field value by tag excel: %v", err)
+				continue
 			}
 		}
 
