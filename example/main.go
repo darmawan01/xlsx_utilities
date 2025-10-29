@@ -8,8 +8,8 @@ import (
 
 func main() {
 	type Person struct {
-		Name string
-		Age  int `excel:"Umur"`
+		Name string `excel:"Nama Ganteng"`
+		Age  int    `excel:"Umur"`
 	}
 
 	// Create sample data

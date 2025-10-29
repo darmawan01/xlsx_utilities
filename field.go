@@ -9,7 +9,7 @@ import (
 )
 
 func setNestedField(v reflect.Value, fieldPath string, value interface{}) error {
-	fields := strings.Split(fieldPath, " ")
+	fields := strings.Split(fieldPath, "->")
 	for i, field := range fields {
 		if v.Kind() == reflect.Ptr {
 			if v.IsNil() {
@@ -196,7 +196,9 @@ func getFieldValueByTagExcel(v reflect.Value, tagValue string) (reflect.Value, e
 		fieldType := v.Type().Field(i)
 
 		tagExcelValue := fieldType.Tag.Get("excel")
-
+		tagExcelValue = strings.TrimSpace(tagExcelValue)
+		tagExcelValue = strings.ReplaceAll(tagExcelValue, " ", "")
+		tagExcelValue = strings.ToLower(tagExcelValue)
 		if tagExcelValue == "" {
 			continue
 		}
@@ -205,7 +207,7 @@ func getFieldValueByTagExcel(v reflect.Value, tagValue string) (reflect.Value, e
 			continue
 		}
 
-		if tagValue != strings.ToLower(tagExcelValue) {
+		if tagValue != tagExcelValue {
 			continue
 		}
 

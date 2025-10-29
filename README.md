@@ -171,7 +171,7 @@ func main() {
 
 ## Nested Struct Support
 
-The package supports nested structs when converting to and from Excel files. Headers for nested fields are flattened using space notation (e.g., "Address Street", "Address City").
+The package supports nested structs when converting to and from Excel files. Headers for nested fields are flattened using "->" notation (e.g., "Address->Street", "Address->City").
 
 ## Custom Type Handling
 

@@ -256,7 +256,7 @@ func FromStruct[T comparable](data []T) (*ExcelData[T], error) {
 }
 
 // FormatImportErrors returns a formatted string of all import errors
-func (i *ImportResult[T]) FormatImportErrors() []byte {
+func (i *ImportResult[T]) FormatImportErrors() string {
 	errs := make([]string, 0)
 
 	for _, err := range i.Errors {
@@ -264,5 +264,5 @@ func (i *ImportResult[T]) FormatImportErrors() []byte {
 	}
 
 	out, _ := json.Marshal(errs)
-	return out
+	return string(out)
 }
