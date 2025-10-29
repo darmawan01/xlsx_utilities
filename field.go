@@ -187,6 +187,10 @@ func getFieldValueByTagExcel(v reflect.Value, tagValue string) (reflect.Value, e
 		return reflect.Value{}, fmt.Errorf("value is not a struct")
 	}
 
+	tagValue = strings.TrimSpace(tagValue)
+	tagValue = strings.ReplaceAll(tagValue, " ", "")
+	tagValue = strings.ToLower(tagValue)
+
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 		fieldType := v.Type().Field(i)
@@ -198,6 +202,10 @@ func getFieldValueByTagExcel(v reflect.Value, tagValue string) (reflect.Value, e
 		}
 
 		if field.Kind() == reflect.Struct {
+			continue
+		}
+
+		if tagValue != strings.ToLower(tagExcelValue) {
 			continue
 		}
 
