@@ -36,6 +36,11 @@ func getNestedHeaders(t reflect.Type, prefix string) ([]string, error) {
 			fieldName = prefix + " " + fieldName
 		}
 
+		tagExcelValue := field.Tag.Get("excel")
+		if tagExcelValue != "" {
+			fieldName = tagExcelValue
+		}
+
 		fieldType := field.Type
 		if fieldType.Kind() == reflect.Ptr {
 			fieldType = fieldType.Elem()

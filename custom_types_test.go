@@ -90,11 +90,11 @@ func TestXlsxUtilities(t *testing.T) {
 		// Convert to Excel
 		excelData, err := FromStruct(data)
 		assert.NoError(t, err)
-		err = excelData.ToExcel(filename)
+		err = excelData.ToExcel(filename, "Sheet1")
 		assert.NoError(t, err)
 
 		// Read from Excel
-		readExcelData, err := FromExcel[user](filename)
+		readExcelData, err := FromExcel[user](filename, "Sheet1")
 		assert.NoError(t, err)
 		assert.Equal(t, excelData.Headers, readExcelData.Headers)
 		assert.Equal(t, excelData.Rows, readExcelData.Rows)

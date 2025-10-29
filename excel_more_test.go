@@ -121,7 +121,7 @@ func TestComplexPointerStruct(t *testing.T) {
 		assert.Equal(t, true, excelData.Rows[0][4])
 		assert.Equal(t, "121414141413", excelData.Rows[0][6])
 
-		excelData.Save("test.xlsx")
+		excelData.Save("test.xlsx", "Sheet1")
 		// assert.Equal(t, "tag1", excelData.Rows[0][5])
 
 		// Check first ContactInfo
@@ -141,11 +141,11 @@ func TestComplexPointerStruct(t *testing.T) {
 		// Write to file
 		excelData, err := FromStruct(testData)
 		assert.NoError(t, err)
-		err = excelData.ToExcel(filename)
+		err = excelData.ToExcel(filename, "Sheet1")
 		assert.NoError(t, err)
 
 		// Read from file
-		readExcelData, err := FromExcel[*ComplexStruct](filename)
+		readExcelData, err := FromExcel[*ComplexStruct](filename, "Sheet1")
 		assert.NoError(t, err)
 
 		// Convert back to struct

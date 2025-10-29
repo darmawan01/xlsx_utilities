@@ -24,7 +24,11 @@ func setNestedField(v reflect.Value, fieldPath string, value interface{}) error 
 
 		f := v.FieldByName(field)
 		if !f.IsValid() {
-			return fmt.Errorf("no such field: %s in obj", field)
+			var err error
+			f, err = getFieldValueByTagExcel(v, field)
+			if err != nil {
+				return fmt.Errorf("error getting field value by tag excel: %v", err)
+			}
 		}
 
 		if i == len(fields)-1 {
@@ -68,7 +72,7 @@ func setNestedField(v reflect.Value, fieldPath string, value interface{}) error 
 // setField sets the value of a struct field, handling type conversions
 func setField(field reflect.Value, value interface{}) error {
 	if !field.CanSet() {
-		return fmt.Errorf("cannot set field")
+		return fmt.Errorf("cannot set field: %v, value: %v", field.Kind(), value)
 	}
 
 	// Handle pointer types
@@ -169,4 +173,36 @@ func setSliceField(field reflect.Value, value interface{}) error {
 
 	field.Set(slice)
 	return nil
+}
+
+func getFieldValueByTagExcel(v reflect.Value, tagValue string) (reflect.Value, error) {
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return reflect.Value{}, fmt.Errorf("value is nil")
+		}
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		return reflect.Value{}, fmt.Errorf("value is not a struct")
+	}
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := v.Type().Field(i)
+
+		tagExcelValue := fieldType.Tag.Get("excel")
+
+		if tagExcelValue == "" {
+			continue
+		}
+
+		if field.Kind() == reflect.Struct {
+			continue
+		}
+
+		return field, nil
+	}
+
+	return reflect.Value{}, fmt.Errorf("no field found with tag %s", tagValue)
 }

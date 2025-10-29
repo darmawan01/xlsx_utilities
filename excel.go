@@ -53,33 +53,33 @@ func (ed *ExcelData[T]) AddRow(row []interface{}) error {
 }
 
 // ToExcel generates an Excel file from the ExcelData
-func (ed *ExcelData[T]) ToExcel(filename string) error {
-	return ed.Save(filename)
+func (ed *ExcelData[T]) ToExcel(filename string, sheetName string) error {
+	return ed.Save(filename, sheetName)
 }
 
 // Save the Excel file
-func (ed *ExcelData[T]) Save(filename string) error {
-	f := ed.ToFile()
+func (ed *ExcelData[T]) Save(filename string, sheetName string) error {
+	f := ed.ToFile(sheetName)
 	defer f.Close()
 
 	return f.SaveAs(filename)
 }
 
 // ToFile generates an Excel file from the ExcelData
-func (ed *ExcelData[T]) ToFile() *excelize.File {
+func (ed *ExcelData[T]) ToFile(sheetName string) *excelize.File {
 	f := excelize.NewFile()
 
 	// Write headers
 	for col, header := range ed.Headers {
 		cell := fmt.Sprintf("%s1", intToExcelColumn(col))
-		f.SetCellValue("Sheet1", cell, header)
+		f.SetCellValue(sheetName, cell, header)
 	}
 
 	// Write data
 	for rowIndex, row := range ed.Rows {
 		for col, value := range row {
 			cell := fmt.Sprintf("%s%d", intToExcelColumn(col), rowIndex+2)
-			f.SetCellValue("Sheet1", cell, value)
+			f.SetCellValue(sheetName, cell, value)
 		}
 	}
 
@@ -106,14 +106,14 @@ func excelColumnToInt(columnName string) int {
 }
 
 // FromExcel reads an Excel file into ExcelData
-func FromFileExcel[T comparable](file *bytes.Reader) (*ExcelData[T], error) {
+func FromFileExcel[T comparable](file *bytes.Reader, sheetName string) (*ExcelData[T], error) {
 	f, err := excelize.OpenReader(file)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	rows, err := f.GetRows("Sheet1")
+	rows, err := f.GetRows(sheetName)
 	if err != nil {
 		return nil, err
 	}
@@ -136,14 +136,14 @@ func FromFileExcel[T comparable](file *bytes.Reader) (*ExcelData[T], error) {
 }
 
 // FromExcel reads an Excel file into ExcelData
-func FromExcel[T comparable](filename string) (*ExcelData[T], error) {
+func FromExcel[T comparable](filename string, sheetName string) (*ExcelData[T], error) {
 	f, err := excelize.OpenFile(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	rows, err := f.GetRows("Sheet1")
+	rows, err := f.GetRows(sheetName)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,21 @@ func (ed *ExcelData[T]) ToStruct() ImportResult[T] {
 			if i < len(row) {
 				err := setNestedField(item, header, row[i])
 				if err != nil {
-					fieldType := item.FieldByName(header).Type()
+					field := item.FieldByName(header)
+					if !field.IsValid() {
+						field, err = getFieldValueByTagExcel(item, header)
+						if err != nil {
+							rowErrors = append(rowErrors, ImportError{
+								RowIndex: rowIndex + 2, // +2 because Excel rows are 1-indexed and we skip the header
+								Header:   header,
+								Value:    row[i],
+								Type:     reflect.TypeOf(row[i]),
+								Err:      err,
+							})
+							continue
+						}
+					}
+					fieldType := field.Type()
 					if fieldType.Kind() == reflect.Ptr {
 						fieldType = fieldType.Elem()
 					}

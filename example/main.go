@@ -9,7 +9,7 @@ import (
 func main() {
 	type Person struct {
 		Name string
-		Age  int
+		Age  int `excel:"Umur"`
 	}
 
 	// Create sample data
@@ -27,14 +27,14 @@ func main() {
 	}
 
 	// Write to Excel file
-	err = excelData.ToExcel("people.xlsx")
+	err = excelData.ToExcel("people.xlsx", "Sheet1")
 	if err != nil {
 		fmt.Println("Error writing Excel file:", err)
 		return
 	}
 
 	// Read from Excel file
-	readExcelData, err := FromExcel[Person]("people.xlsx")
+	readExcelData, err := FromExcel[Person]("people.xlsx", "Sheet1")
 	if err != nil {
 		fmt.Println("Error reading Excel file:", err)
 		return

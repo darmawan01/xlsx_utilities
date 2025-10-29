@@ -30,7 +30,7 @@ func TestExcelDataOperations(t *testing.T) {
 		assert.Equal(t, []interface{}{"John Doe", 30}, excelData.Rows[0])
 
 		// Test writing to Excel
-		err = excelData.ToExcel("test_new_excel_data.xlsx")
+		err = excelData.ToExcel("test_new_excel_data.xlsx", "Sheet1")
 		assert.NoError(t, err)
 		defer os.RemoveAll("test_new_excel_data.xlsx")
 
@@ -114,7 +114,7 @@ func TestExcelDataOperations(t *testing.T) {
 
 	t.Run("ToExcel", func(t *testing.T) {
 		excelData, _ := FromStruct(data)
-		err := excelData.ToExcel("test_people.xlsx")
+		err := excelData.ToExcel("test_people.xlsx", "Sheet1")
 		assert.NoError(t, err)
 
 		// Verify file contents
@@ -130,7 +130,7 @@ func TestExcelDataOperations(t *testing.T) {
 	})
 
 	t.Run("FromExcel", func(t *testing.T) {
-		excelData, err := FromExcel[person]("test_people.xlsx")
+		excelData, err := FromExcel[person]("test_people.xlsx", "Sheet1")
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"Name", "Age"}, excelData.Headers)
 		assert.Len(t, excelData.Rows, 3)
@@ -138,7 +138,7 @@ func TestExcelDataOperations(t *testing.T) {
 	})
 
 	t.Run("ToStruct", func(t *testing.T) {
-		excelData, _ := FromExcel[person]("test_people.xlsx")
+		excelData, _ := FromExcel[person]("test_people.xlsx", "Sheet1")
 		result := excelData.ToStruct()
 		assert.Len(t, result.Errors, 0)
 		assert.Len(t, result.Data, 3)
@@ -170,7 +170,7 @@ func TestExcelDataOperations(t *testing.T) {
 		f.SaveAs("test_error.xlsx")
 		defer os.Remove("test_error.xlsx")
 
-		excelData, _ := FromExcel[person]("test_error.xlsx")
+		excelData, _ := FromExcel[person]("test_error.xlsx", "Sheet1")
 		result := excelData.ToStruct()
 		assert.Len(t, result.Errors, 1)
 		assert.Contains(t, result.Errors[0].Error(), "Row 2, Column 'Age': cannot convert 'not_a_number' to type string")
@@ -213,7 +213,7 @@ func TestFromStructWithEmptySlice(t *testing.T) {
 }
 
 func TestFromExcelWithNonExistentFile(t *testing.T) {
-	_, err := FromExcel[person]("non_existent_file.xlsx")
+	_, err := FromExcel[person]("non_existent_file.xlsx", "Sheet1")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no such file or directory")
 }
@@ -227,7 +227,7 @@ func TestFromExcelWithEmptyFile(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(filepath.Dir(inputPath))
 
-	_, err = FromExcel[person](inputPath)
+	_, err = FromExcel[person](inputPath, "Sheet1")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "excel file is empty or has no data rows")
 }
@@ -249,7 +249,7 @@ func TestToStructWithTypeMismatch(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.Remove(inputPath)
 
-	excelData, err := FromExcel[MismatchedPerson](inputPath)
+	excelData, err := FromExcel[MismatchedPerson](inputPath, "Sheet1")
 	assert.NoError(t, err)
 
 	result := excelData.ToStruct()
